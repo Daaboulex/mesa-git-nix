@@ -53,10 +53,11 @@ let
         cat ${./clang-libdir-option.meson} >> meson.options
       fi
 
-      # Disable rusticl ICD auto-install (nixpkgs constructs its own with absolute path)
+      # Disable rusticl ICD file auto-install (nixpkgs constructs its own with absolute path)
+      # Only target the configure_file block, not the shared_library install
       if [ -f src/gallium/targets/rusticl/meson.build ]; then
-        substituteInPlace src/gallium/targets/rusticl/meson.build \
-          --replace-fail "install : true," "install : false," || true
+        sed -i '/configure_file/,/^)/{s/install : true/install : false/}' \
+          src/gallium/targets/rusticl/meson.build || true
       fi
     '';
     # Skip mesa-gl-headers validation — git main headers won't match the pinned release
