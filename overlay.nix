@@ -50,15 +50,7 @@ let
 
       # Add clang-libdir meson option if not already present
       if ! grep -q "clang-libdir" meson.options 2>/dev/null; then
-        cat >> meson.options << 'MESAOPT'
-
-      option(
-        'clang-libdir',
-        type : 'string',
-        value : '''',
-        description : 'Locations to search for clang libraries.'
-      )
-      MESAOPT
+        cat ${./clang-libdir-option.meson} >> meson.options
       fi
 
       # Disable rusticl ICD auto-install (nixpkgs constructs its own with absolute path)
