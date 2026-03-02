@@ -55,7 +55,7 @@ let
       option(
         'clang-libdir',
         type : 'string',
-        value : '',
+        value : '''',
         description : 'Locations to search for clang libraries.'
       )
       MESAOPT
