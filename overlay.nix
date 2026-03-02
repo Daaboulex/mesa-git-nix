@@ -61,6 +61,16 @@ let
   # ===========================================================================
   mesaGitOverride = mesa: { galliumDrivers ? null, vulkanDrivers ? null }:
     let
+      # Determine the effective gallium driver list for output/postInstall decisions
+      effectiveGallium = if galliumDrivers != null then galliumDrivers
+        else mesa.galliumDrivers or [];
+
+      # d3d12 produces spirv2dxil; asahi/panfrost produce cross_tools binaries
+      hasD3d12   = builtins.elem "d3d12" effectiveGallium;
+      hasAsahi   = builtins.elem "asahi" effectiveGallium;
+      hasPanfrost = builtins.elem "panfrost" effectiveGallium;
+      hasCrossToolDrivers = hasAsahi || hasPanfrost;
+
       # Replace driver flags in mesonFlags if custom lists are provided
       overrideDriverFlags = flags:
         let
@@ -72,6 +82,23 @@ let
             (lib.mesonOption "gallium-drivers" (lib.concatStringsSep "," galliumDrivers))
           ++ lib.optional (vulkanDrivers != null)
             (lib.mesonOption "vulkan-drivers" (lib.concatStringsSep "," vulkanDrivers));
+
+      # Filter outputs: remove spirv2dxil/cross_tools when their drivers aren't built
+      filterOutputs = outputs:
+        builtins.filter (o:
+          (o != "spirv2dxil" || hasD3d12) &&
+          (o != "cross_tools" || hasCrossToolDrivers)
+        ) outputs;
+
+      # Filter mesonFlags: remove tool/compiler flags when cross_tools drivers aren't built
+      filterMesonFlags = flags:
+        if hasCrossToolDrivers then flags
+        else builtins.filter (f:
+          !(lib.hasPrefix "-Dtools=" f) &&
+          !(lib.hasPrefix "-Dinstall-mesa-clc=" f) &&
+          !(lib.hasPrefix "-Dinstall-precomp-compiler=" f)
+        ) flags;
+
     in mesa.overrideAttrs (old: {
       version = "${versionInfo.version}-${builtins.substring 0 7 versionInfo.rev}";
 
@@ -111,7 +138,36 @@ let
         fi
       '';
 
-      mesonFlags = overrideDriverFlags (old.mesonFlags or []);
+      # Remove outputs that won't be populated with the selected drivers
+      outputs = filterOutputs (old.outputs or [ "out" ]);
+
+      mesonFlags = filterMesonFlags (overrideDriverFlags (old.mesonFlags or []));
+
+      # Rewrite postInstall to only move outputs that actually exist
+      postInstall = ''
+        # cross_tools: only move if the drivers that produce them are built
+        ${lib.optionalString hasCrossToolDrivers ''
+          moveToOutput bin/asahi_clc $cross_tools
+          moveToOutput bin/intel_clc $cross_tools
+          moveToOutput bin/mesa_clc $cross_tools
+          moveToOutput bin/panfrost_compile $cross_tools
+          moveToOutput bin/panfrost_texfeatures $cross_tools
+          moveToOutput bin/panfrostdump $cross_tools
+          moveToOutput bin/pco_clc $cross_tools
+          moveToOutput bin/vtn_bindgen2 $cross_tools
+        ''}
+
+        # OpenCL (always built — rusticl is enabled by default)
+        moveToOutput "lib/lib*OpenCL*" $opencl
+        mkdir -p $opencl/etc/OpenCL/vendors/
+        echo $opencl/lib/libRusticlOpenCL.so > $opencl/etc/OpenCL/vendors/rusticl.icd
+
+        # spirv2dxil: only present when d3d12 gallium driver is built
+        ${lib.optionalString hasD3d12 ''
+          moveToOutput bin/spirv2dxil $spirv2dxil
+          moveToOutput "lib/libspirv_to_dxil*" $spirv2dxil
+        ''}
+      '';
 
       env = (old.env or {}) // {
         MESON_PACKAGE_CACHE_DIR = packageCache;
