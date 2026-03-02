@@ -2,7 +2,7 @@
 
 Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
 
-Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`) and a NixOS module to swap the system graphics driver in one line.
+Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`), vendor-aware driver presets, and a NixOS module to swap the system graphics driver in one line.
 
 ## Why?
 
@@ -43,7 +43,7 @@ Use `./update.sh` to pin to the latest commit.
 
 ### Option A: NixOS Module (Recommended)
 
-The included NixOS module sets `hardware.graphics.package` and `hardware.graphics.package32` for you.
+The included NixOS module sets `hardware.graphics.package` and `hardware.graphics.package32` for you, with optional vendor-based driver selection.
 
 ```nix
 # configuration.nix or host config
@@ -52,7 +52,10 @@ The included NixOS module sets `hardware.graphics.package` and `hardware.graphic
 
   nixpkgs.overlays = [ inputs.mesa-git-nix.overlays.default ];
 
-  mesa-git.enable = true;
+  mesa-git = {
+    enable = true;
+    drivers = [ "amd" ];  # Only compile AMD drivers (see Driver Presets below)
+  };
 }
 ```
 
@@ -64,8 +67,13 @@ If you manage `hardware.graphics.package` yourself or want to integrate mesa-git
 { inputs, pkgs, lib, ... }: {
   nixpkgs.overlays = [ inputs.mesa-git-nix.overlays.default ];
 
+  # All drivers (default)
   hardware.graphics.package = lib.mkForce pkgs.mesa-git;
   hardware.graphics.package32 = lib.mkForce pkgs.mesa-git-32;
+
+  # Or with vendor selection (AMD-only)
+  hardware.graphics.package = lib.mkForce (pkgs.mkMesaGit { vendors = [ "amd" ]; });
+  hardware.graphics.package32 = lib.mkForce (pkgs.mkMesaGit32 { vendors = [ "amd" ]; });
 }
 ```
 
@@ -74,6 +82,45 @@ If you manage `hardware.graphics.package` yourself or want to integrate mesa-git
 ```bash
 nix build github:daaboulex/mesa-git-nix
 nix eval github:daaboulex/mesa-git-nix#mesa-git.version
+```
+
+## Driver Presets
+
+By default, mesa-git builds **all** drivers (same as nixpkgs). Set `drivers` to only compile what your hardware needs — this dramatically reduces build time.
+
+### Vendor Presets
+
+| Vendor | `drivers` | Gallium | Vulkan |
+|--------|-----------|---------|--------|
+| AMD | `[ "amd" ]` | radeonsi, r600, r300 | RADV |
+| Intel | `[ "intel" ]` | iris, crocus, i915 | ANV, HasVK |
+| NVIDIA | `[ "nvidia" ]` | nouveau, tegra | NVK |
+| All | `[ ]` (default) | all 24 drivers | all 14 drivers |
+
+### Common Essentials (Always Included)
+
+Regardless of vendor selection, these are always built:
+
+- **Gallium**: llvmpipe (software fallback), softpipe, zink (OpenGL-over-Vulkan), virgl (VM)
+- **Vulkan**: Lavapipe/swrast (software fallback), virtio (VM)
+
+### Multi-GPU / Integrated Graphics
+
+For systems with multiple GPUs (e.g., Intel iGPU + NVIDIA dGPU), list all vendors:
+
+```nix
+mesa-git.drivers = [ "intel" "nvidia" ];  # Builds Intel + NVIDIA + common essentials
+```
+
+### Custom Driver Lists
+
+For full control, use `mkMesaGit` / `mkMesaGit32` directly:
+
+```nix
+hardware.graphics.package = lib.mkForce (pkgs.mkMesaGit {
+  galliumDrivers = [ "radeonsi" "llvmpipe" "zink" ];
+  vulkanDrivers = [ "amd" "swrast" ];
+});
 ```
 
 ## How It Works
@@ -86,9 +133,10 @@ The overlay applies `overrideAttrs` to nixpkgs' `mesa` derivation, changing only
 | `src` | Pinned git main commit from `version.json` |
 | `patches` | Cleared (nixpkgs patches target release line numbers) |
 | `postPatch` | Replicates `opencl.patch` effects via `substituteInPlace` + `sed`; skips `mesa-gl-headers` validation |
+| `mesonFlags` | Driver lists replaced when vendor presets are used |
 | `env.MESON_PACKAGE_CACHE_DIR` | Rebuilt from `wraps.json` (Rust crate deps matching git main) |
 
-Everything else (build inputs, meson flags, outputs, `postInstall`, `postFixup`) is inherited from nixpkgs.
+Everything else (build inputs, outputs, `postInstall`, `postFixup`) is inherited from nixpkgs.
 
 ### What the `postPatch` Does
 
@@ -134,8 +182,8 @@ vulkaninfo | grep driverInfo
 mesa-git-nix/
 ├── flake.nix                   # Flake: overlay + NixOS module + packages
 ├── flake.lock
-├── overlay.nix                 # Nixpkgs overlay: mesa-git, mesa-git-32
-├── module.nix                  # NixOS module: mesa-git.enable option
+├── overlay.nix                 # Nixpkgs overlay: mesa-git, mkMesaGit, driver presets
+├── module.nix                  # NixOS module: mesa-git.enable + drivers option
 ├── clang-libdir-option.meson   # Meson option snippet (avoids Nix string escaping)
 ├── version.json                # Pinned commit: rev, hash, version, date
 ├── wraps.json                  # Rust crate deps for MESON_PACKAGE_CACHE_DIR
@@ -145,14 +193,6 @@ mesa-git-nix/
 ├── LICENSE
 └── README.md
 ```
-
-## Drivers Included
-
-All nixpkgs-default drivers are built (not trimmed to AMD-only):
-
-- **Gallium**: radeonsi, iris, nouveau, llvmpipe, zink, virgl, and 15+ more
-- **Vulkan**: RADV (AMD), ANV (Intel), NVK (Nouveau), Lavapipe, and 9+ more
-- **OpenCL**: Rusticl
 
 ## License
 
