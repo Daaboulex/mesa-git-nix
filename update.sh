@@ -19,9 +19,10 @@ REV=$(git ls-remote "$REPO_URL" refs/heads/main | cut -f1)
 echo "    rev: $REV"
 
 echo "==> Computing source hash..."
-PREFETCH_JSON=$(nix-prefetch-git --url "$REPO_URL" --rev "$REV" --quiet 2>/dev/null)
-HASH=$(echo "$PREFETCH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
-DATE=$(echo "$PREFETCH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['date'][:10])")
+# Use nix store prefetch-file (works with Determinate Nix, unlike nix-prefetch-git)
+ARCHIVE_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/${REV}/mesa-${REV}.tar.gz"
+HASH=$(nix store prefetch-file --unpack --json "$ARCHIVE_URL" | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])")
+DATE=$(date -u +%Y-%m-%d)
 echo "    hash: $HASH"
 echo "    date: $DATE"
 
