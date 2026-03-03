@@ -1,0 +1,56 @@
+name: Update Mesa git
+
+on:
+  schedule:
+    - cron: '0 */12 * * *'  # Every 12 hours
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get current pin
+        id: current
+        run: |
+          REV=$(jq -r '.rev' version.json)
+          echo "rev=$REV" >> $GITHUB_OUTPUT
+
+      - name: Get latest Mesa main commit
+        id: upstream
+        run: |
+          LATEST=$(git ls-remote https://gitlab.freedesktop.org/mesa/mesa.git refs/heads/main | awk '{print $1}')
+          echo "rev=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Check if update needed
+        id: check
+        run: |
+          if [ "${{ steps.current.outputs.rev }}" = "${{ steps.upstream.outputs.rev }}" ]; then
+            echo "needed=false" >> $GITHUB_OUTPUT
+          else
+            echo "needed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run update script
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          chmod +x update.sh
+          ./update.sh
+
+      - name: Commit and push
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json wraps.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            SHORT=$(jq -r '.rev[:12]' version.json)
+            git commit -m "chore: update Mesa git to ${SHORT}"
+            git push
+          fi
