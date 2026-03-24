@@ -5,10 +5,12 @@ let
   rustDeps = lib.importJSON ./wraps.json;
 
   # Build the Rust crate package cache from our wraps.json
-  fetchDep = dep: prev.fetchCrate {
-    inherit (dep) pname version hash;
-    unpack = false;
-  };
+  fetchDep =
+    dep:
+    prev.fetchCrate {
+      inherit (dep) pname version hash;
+      unpack = false;
+    };
 
   toCommand = dep: "ln -s ${dep} $out/${dep.pname}-${dep.version}.tar.gz";
 
@@ -34,72 +36,110 @@ let
   #   - swrast (vulkan): Lavapipe software Vulkan
   #   - virtio (vulkan): virtio-gpu native context for VMs
   #
-  commonGallium = [ "llvmpipe" "softpipe" "zink" "virgl" ];
-  commonVulkan  = [ "swrast" "virtio" ];
+  commonGallium = [
+    "llvmpipe"
+    "softpipe"
+    "zink"
+    "virgl"
+  ];
+  commonVulkan = [
+    "swrast"
+    "virtio"
+  ];
 
   vendorGallium = {
-    amd    = [ "radeonsi" "r600" "r300" ];
-    intel  = [ "iris" "crocus" "i915" ];
-    nvidia = [ "nouveau" "tegra" ];
+    amd = [
+      "radeonsi"
+      "r600"
+      "r300"
+    ];
+    intel = [
+      "iris"
+      "crocus"
+      "i915"
+    ];
+    nvidia = [
+      "nouveau"
+      "tegra"
+    ];
   };
 
   vendorVulkan = {
-    amd    = [ "amd" ];
-    intel  = [ "intel" "intel_hasvk" ];
+    amd = [ "amd" ];
+    intel = [
+      "intel"
+      "intel_hasvk"
+    ];
     nvidia = [ "nouveau" ];
   };
 
   # Resolve a list of vendor names into deduplicated driver lists
-  resolveDrivers = vendors:
+  resolveDrivers =
+    vendors:
     let
-      gallium = lib.unique (commonGallium ++ lib.concatMap (v: vendorGallium.${v} or []) vendors);
-      vulkan  = lib.unique (commonVulkan  ++ lib.concatMap (v: vendorVulkan.${v}  or []) vendors);
-    in { inherit gallium vulkan; };
+      gallium = lib.unique (commonGallium ++ lib.concatMap (v: vendorGallium.${v} or [ ]) vendors);
+      vulkan = lib.unique (commonVulkan ++ lib.concatMap (v: vendorVulkan.${v} or [ ]) vendors);
+    in
+    {
+      inherit gallium vulkan;
+    };
 
   # ===========================================================================
   # Core override — applies git source + patches to any mesa derivation
   # ===========================================================================
-  mesaGitOverride = mesa: { galliumDrivers ? null, vulkanDrivers ? null }:
+  mesaGitOverride =
+    mesa:
+    {
+      galliumDrivers ? null,
+      vulkanDrivers ? null,
+    }:
     let
       # Determine the effective gallium driver list for output/postInstall decisions
-      effectiveGallium = if galliumDrivers != null then galliumDrivers
-        else mesa.galliumDrivers or [];
+      effectiveGallium = if galliumDrivers != null then galliumDrivers else mesa.galliumDrivers or [ ];
 
       # d3d12 produces spirv2dxil; asahi/panfrost produce cross_tools binaries
-      hasD3d12   = builtins.elem "d3d12" effectiveGallium;
-      hasAsahi   = builtins.elem "asahi" effectiveGallium;
+      hasD3d12 = builtins.elem "d3d12" effectiveGallium;
+      hasAsahi = builtins.elem "asahi" effectiveGallium;
       hasPanfrost = builtins.elem "panfrost" effectiveGallium;
       hasCrossToolDrivers = hasAsahi || hasPanfrost;
 
       # Replace driver flags in mesonFlags if custom lists are provided
-      overrideDriverFlags = flags:
+      overrideDriverFlags =
+        flags:
         let
-          isDriverFlag = f:
-            lib.hasPrefix "-Dgallium-drivers=" f || lib.hasPrefix "-Dvulkan-drivers=" f;
+          isDriverFlag = f: lib.hasPrefix "-Dgallium-drivers=" f || lib.hasPrefix "-Dvulkan-drivers=" f;
           filtered = builtins.filter (f: !isDriverFlag f) flags;
-        in filtered
-          ++ lib.optional (galliumDrivers != null)
-            (lib.mesonOption "gallium-drivers" (lib.concatStringsSep "," galliumDrivers))
-          ++ lib.optional (vulkanDrivers != null)
-            (lib.mesonOption "vulkan-drivers" (lib.concatStringsSep "," vulkanDrivers));
+        in
+        filtered
+        ++ lib.optional (galliumDrivers != null) (
+          lib.mesonOption "gallium-drivers" (lib.concatStringsSep "," galliumDrivers)
+        )
+        ++ lib.optional (vulkanDrivers != null) (
+          lib.mesonOption "vulkan-drivers" (lib.concatStringsSep "," vulkanDrivers)
+        );
 
       # Filter outputs: remove spirv2dxil/cross_tools when their drivers aren't built
-      filterOutputs = outputs:
-        builtins.filter (o:
-          (o != "spirv2dxil" || hasD3d12) &&
-          (o != "cross_tools" || hasCrossToolDrivers)
+      filterOutputs =
+        outputs:
+        builtins.filter (
+          o: (o != "spirv2dxil" || hasD3d12) && (o != "cross_tools" || hasCrossToolDrivers)
         ) outputs;
 
       # Filter mesonFlags: remove tool/compiler flags when cross_tools drivers aren't built
-      filterMesonFlags = flags:
-        if hasCrossToolDrivers then flags
-        else builtins.filter (f:
-          !(lib.hasPrefix "-Dtools=" f) &&
-          !(lib.hasPrefix "-Dinstall-mesa-clc=" f) &&
-          !(lib.hasPrefix "-Dinstall-precomp-compiler=" f)
-        ) flags;
+      filterMesonFlags =
+        flags:
+        if hasCrossToolDrivers then
+          flags
+        else
+          builtins.filter (
+            f:
+            !(lib.hasPrefix "-Dtools=" f)
+            && !(lib.hasPrefix "-Dinstall-mesa-clc=" f)
+            && !(lib.hasPrefix "-Dinstall-precomp-compiler=" f)
+          ) flags;
 
-    in mesa.overrideAttrs (old: {
+    in
+    mesa.overrideAttrs (old: {
       version = "${versionInfo.version}-${builtins.substring 0 7 versionInfo.rev}";
 
       src = prev.fetchFromGitLab {
@@ -113,7 +153,7 @@ let
       # The underlying changes (clang-libdir option, rusticl ICD install disable) are
       # handled: clang-libdir is passed via mesonFlags, and the ICD path is reconstructed
       # in postInstall. We reapply just the functional parts via postPatch.
-      patches = [];
+      patches = [ ];
 
       postPatch = ''
         patchShebangs .
@@ -141,7 +181,7 @@ let
       # Remove outputs that won't be populated with the selected drivers
       outputs = filterOutputs (old.outputs or [ "out" ]);
 
-      mesonFlags = filterMesonFlags (overrideDriverFlags (old.mesonFlags or []));
+      mesonFlags = filterMesonFlags (overrideDriverFlags (old.mesonFlags or [ ]));
 
       # Rewrite postInstall to only move outputs that actually exist
       postInstall = ''
@@ -169,19 +209,20 @@ let
         ''}
       '';
 
-      env = (old.env or {}) // {
+      env = (old.env or { }) // {
         MESON_PACKAGE_CACHE_DIR = packageCache;
       };
 
-      meta = (old.meta or {}) // {
+      meta = (old.meta or { }) // {
         description = "Mesa (git main) - bleeding-edge 3D graphics library";
       };
     });
 
-in {
+in
+{
   # Default: all drivers (same as nixpkgs)
-  mesa-git    = mesaGitOverride prev.mesa {};
-  mesa-git-32 = mesaGitOverride prev.pkgsi686Linux.mesa {};
+  mesa-git = mesaGitOverride prev.mesa { };
+  mesa-git-32 = mesaGitOverride prev.pkgsi686Linux.mesa { };
 
   # Build mesa-git with only the specified vendor drivers + common essentials.
   #
@@ -190,20 +231,70 @@ in {
   #   pkgs.mkMesaGit { vendors = [ "amd" "intel" ]; }  # iGPU + dGPU
   #   pkgs.mkMesaGit { galliumDrivers = [ "radeonsi" "llvmpipe" ]; vulkanDrivers = [ "amd" ]; }
   #
-  mkMesaGit = { vendors ? [], galliumDrivers ? null, vulkanDrivers ? null }:
+  mkMesaGit =
+    {
+      vendors ? [ ],
+      galliumDrivers ? null,
+      vulkanDrivers ? null,
+    }:
     let
       resolved = resolveDrivers vendors;
-      gd = if galliumDrivers != null then galliumDrivers else if vendors != [] then resolved.gallium else null;
-      vd = if vulkanDrivers  != null then vulkanDrivers  else if vendors != [] then resolved.vulkan  else null;
-    in mesaGitOverride prev.mesa { galliumDrivers = gd; vulkanDrivers = vd; };
+      gd =
+        if galliumDrivers != null then
+          galliumDrivers
+        else if vendors != [ ] then
+          resolved.gallium
+        else
+          null;
+      vd =
+        if vulkanDrivers != null then
+          vulkanDrivers
+        else if vendors != [ ] then
+          resolved.vulkan
+        else
+          null;
+    in
+    mesaGitOverride prev.mesa {
+      galliumDrivers = gd;
+      vulkanDrivers = vd;
+    };
 
-  mkMesaGit32 = { vendors ? [], galliumDrivers ? null, vulkanDrivers ? null }:
+  mkMesaGit32 =
+    {
+      vendors ? [ ],
+      galliumDrivers ? null,
+      vulkanDrivers ? null,
+    }:
     let
       resolved = resolveDrivers vendors;
-      gd = if galliumDrivers != null then galliumDrivers else if vendors != [] then resolved.gallium else null;
-      vd = if vulkanDrivers  != null then vulkanDrivers  else if vendors != [] then resolved.vulkan  else null;
-    in mesaGitOverride prev.pkgsi686Linux.mesa { galliumDrivers = gd; vulkanDrivers = vd; };
+      gd =
+        if galliumDrivers != null then
+          galliumDrivers
+        else if vendors != [ ] then
+          resolved.gallium
+        else
+          null;
+      vd =
+        if vulkanDrivers != null then
+          vulkanDrivers
+        else if vendors != [ ] then
+          resolved.vulkan
+        else
+          null;
+    in
+    mesaGitOverride prev.pkgsi686Linux.mesa {
+      galliumDrivers = gd;
+      vulkanDrivers = vd;
+    };
 
   # Expose presets and resolver for downstream modules
-  mesa-git-lib = { inherit vendorGallium vendorVulkan commonGallium commonVulkan resolveDrivers; };
+  mesa-git-lib = {
+    inherit
+      vendorGallium
+      vendorVulkan
+      commonGallium
+      commonVulkan
+      resolveDrivers
+      ;
+  };
 }
