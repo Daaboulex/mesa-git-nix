@@ -1,0 +1,17 @@
+{
+  "package": "mesa-git",
+  "upstream": {
+    "type": "git-ls-remote",
+    "url": "https://gitlab.freedesktop.org/mesa/mesa.git",
+    "branch": "main"
+  },
+  "packageFile": "version.json",
+  "hashes": [
+    "hash"
+  ],
+  "verify": {
+    "binary": null,
+    "args": null,
+    "check": "eval"
+  }
+}
