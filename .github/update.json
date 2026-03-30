@@ -13,5 +13,6 @@
     "binary": null,
     "args": null,
     "check": "eval"
-  }
+  },
+  "customScript": "./update.sh"
 }

@@ -26,8 +26,15 @@ UPSTREAM_TYPE=$(echo "$CONFIG" | jq -r '.upstream.type')
 PACKAGE=$(echo "$CONFIG" | jq -r '.package')
 PACKAGE_FILE=$(echo "$CONFIG" | jq -r '.packageFile // "package.nix"')
 HASH_FIELDS=$(echo "$CONFIG" | jq -r '.hashes // [] | .[]')
+CUSTOM_SCRIPT=$(echo "$CONFIG" | jq -r '.customScript // empty')
 
 output "package_name" "$PACKAGE"
+
+# --- Custom script delegation ---
+if [ -n "$CUSTOM_SCRIPT" ]; then
+  log "Delegating to custom script: $CUSTOM_SCRIPT"
+  GITHUB_OUTPUT="$OUTPUT_FILE" exec "$CUSTOM_SCRIPT"
+fi
 
 # --- No-upstream repos skip ---
 if [ "$UPSTREAM_TYPE" = "none" ] || [ "$UPSTREAM_TYPE" = "null" ]; then
