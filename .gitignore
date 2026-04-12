@@ -7,3 +7,14 @@ result-*
 # AI tracking (local only)
 AI-progress.json
 AI-tasks.json
+
+# AI context (local-only, never track)
+CLAUDE.md
+GEMINI.md
+.claude/
+.gemini/
+AI-progress.json
+AI-tasks.json
+.ai-context/
+.planning/
+.session-handoff.md
