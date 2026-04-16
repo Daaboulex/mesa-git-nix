@@ -1,5 +1,7 @@
 # mesa-git-nix
 
+[![CI](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml)
+
 Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
 
 Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`), vendor-aware driver presets, and a NixOS module to swap the system graphics driver in one line.
