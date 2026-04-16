@@ -1,6 +1,11 @@
 # mesa-git-nix
 
 [![CI](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Daaboulex/mesa-git-nix)](./LICENSE)
+[![NixOS](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
+[![Last commit](https://img.shields.io/github/last-commit/Daaboulex/mesa-git-nix)](https://github.com/Daaboulex/mesa-git-nix/commits)
+[![Stars](https://img.shields.io/github/stars/Daaboulex/mesa-git-nix?style=flat)](https://github.com/Daaboulex/mesa-git-nix/stargazers)
+[![Issues](https://img.shields.io/github/issues/Daaboulex/mesa-git-nix)](https://github.com/Daaboulex/mesa-git-nix/issues)
 
 Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
 
