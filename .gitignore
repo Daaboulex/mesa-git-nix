@@ -18,3 +18,4 @@ AI-tasks.json
 .ai-context/
 .planning/
 .session-handoff.md
+# AI context — local only, never committed
