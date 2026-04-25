@@ -11,6 +11,14 @@ Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged a
 
 Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`), vendor-aware driver presets, and a NixOS module to swap the system graphics driver in one line.
 
+## Upstream
+
+This is a **Nix packaging wrapper** — not the original project. All credit for Mesa goes to:
+
+- **Project**: [Mesa 3D Graphics Library](https://www.mesa3d.org/)
+- **Repository**: [gitlab.freedesktop.org/mesa/mesa](https://gitlab.freedesktop.org/mesa/mesa)
+- **License**: [MIT](https://docs.mesa3d.org/license.html)
+
 ## Why?
 
 nixpkgs-unstable tracks Mesa stable releases. Mesa `main` often contains unreleased driver optimizations weeks or months before a stable cut:
@@ -152,10 +160,22 @@ Everything else (build inputs, outputs, `postInstall`, `postFixup`) is inherited
 2. **Rusticl ICD install** — disables auto-installing the `.icd` file (nixpkgs reconstructs it with an absolute Nix store path in `postInstall`).
 3. **`mesa-gl-headers` check** — skipped entirely, since git main headers diverge from the pinned release headers package.
 
-## Updating
+## Development
 
 ```bash
-./update.sh
+git clone https://github.com/Daaboulex/mesa-git-nix
+cd mesa-git-nix
+nix develop                       # enter dev shell, installs pre-commit hooks
+nix fmt                           # format flake + module
+nix flake check --no-build        # eval check
+nix build .#mesa-git              # build the package
+nix eval .#mesa-git.version       # confirm pinned commit + version string
+```
+
+### Updating the pin
+
+```bash
+./scripts/update.sh
 ```
 
 This script:
@@ -171,6 +191,8 @@ After updating, test with:
 nix build .#mesa-git
 nix eval .#mesa-git.version
 ```
+
+CI runs the same chain every 12 hours via `.github/workflows/update.yml`, so manual updates are rarely needed.
 
 ## Verification
 
