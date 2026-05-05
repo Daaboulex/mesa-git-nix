@@ -252,6 +252,9 @@ mesa-git-nix/
 ```
 
 <!-- BEGIN generated:options -->
+## Options
+
+This module declares options under `mesa-git`. See [`module.nix`](module.nix) for all available options.
 <!-- END generated:options -->
 
 ## License
