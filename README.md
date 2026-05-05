@@ -1,23 +1,23 @@
 # mesa-git-nix
 
-[![CI](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/mesa-git-nix/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/Daaboulex/mesa-git-nix)](./LICENSE)
-[![NixOS](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
-[![Last commit](https://img.shields.io/github/last-commit/Daaboulex/mesa-git-nix)](https://github.com/Daaboulex/mesa-git-nix/commits)
-[![Stars](https://img.shields.io/github/stars/Daaboulex/mesa-git-nix?style=flat)](https://github.com/Daaboulex/mesa-git-nix/stargazers)
-[![Issues](https://img.shields.io/github/issues/Daaboulex/mesa-git-nix)](https://github.com/Daaboulex/mesa-git-nix/issues)
+<!-- BEGIN generated:badges -->
+[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+<!-- END generated:badges -->
 
 Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
 
 Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`), vendor-aware driver presets, and a NixOS module to swap the system graphics driver in one line.
 
+<!-- BEGIN generated:upstream -->
 ## Upstream
 
-This is a **Nix packaging wrapper** — not the original project. All credit for Mesa goes to:
-
-- **Project**: [Mesa 3D Graphics Library](https://www.mesa3d.org/)
-- **Repository**: [gitlab.freedesktop.org/mesa/mesa](https://gitlab.freedesktop.org/mesa/mesa)
-- **License**: [MIT](https://docs.mesa3d.org/license.html)
+| | |
+|---|---|
+| **Project** | https://gitlab.freedesktop.org/mesa/mesa |
+| **License** | MIT |
+| **Tracked** | Git HEAD (main) |
+<!-- END generated:upstream -->
 
 ## Why?
 
@@ -39,6 +39,33 @@ nixpkgs-unstable tracks Mesa stable releases. Mesa `main` often contains unrelea
 | Date    | 2026-05-05 |
 
 Updated automatically every 12 hours by CI. See [`version.json`](./version.json) for the full commit SHA.
+
+<!-- BEGIN generated:installation -->
+## Installation
+
+Add as a flake input:
+
+```nix
+{
+  inputs.mesa-git = {
+    url = "github:Daaboulex/mesa-git-nix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+}
+```
+
+Then add the overlay:
+
+```nix
+nixpkgs.overlays = [ inputs.mesa-git.overlays.default ];
+```
+
+Import the NixOS module:
+
+```nix
+imports = [ inputs.mesa-git.nixosModules.default ];
+```
+<!-- END generated:installation -->
 
 ## Usage
 
@@ -224,6 +251,15 @@ mesa-git-nix/
 └── README.md
 ```
 
+<!-- BEGIN generated:options -->
+<!-- END generated:options -->
+
 ## License
 
 This packaging flake is [MIT](./LICENSE) licensed. Mesa itself is distributed under the [MIT license](https://docs.mesa3d.org/license.html).
+
+<!-- BEGIN generated:footer -->
+---
+
+*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
+<!-- END generated:footer -->
