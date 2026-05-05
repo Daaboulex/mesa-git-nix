@@ -1,0 +1,7 @@
+
+option(
+  'clang-libdir',
+  type : 'string',
+  value : '',
+  description : 'Locations to search for clang libraries.'
+)
