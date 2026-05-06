@@ -31,8 +31,8 @@
     },
     {
         "pname": "libc",
-        "version": "0.2.171",
-        "hash": "sha256-wZk3IW6dOqmVbZu438CwyL62BY/E96TcTYUO34aiN9Y="
+        "version": "0.2.185",
+        "hash": "sha256-Uv8sD+m8bLaxSgWSwv9Pqc64PuqduXmwSHzQVJRqK48="
     },
     {
         "pname": "log",
@@ -96,8 +96,8 @@
     },
     {
         "pname": "rustix",
-        "version": "1.1.2",
-        "hash": "sha256-zRX4osVVGoTVbv3BzQSQieQJrBmjBy1QN6F/1wcZ/z4="
+        "version": "1.1.4",
+        "hash": "sha256-tv5FZblRi4PvT5G7R84pYgyoKL0yy35AjwBi6ZMLoZA="
     },
     {
         "pname": "syn",
