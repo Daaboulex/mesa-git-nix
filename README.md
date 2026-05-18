@@ -35,7 +35,7 @@ nixpkgs-unstable tracks Mesa stable releases. Mesa `main` often contains unrelea
 | Field   | Value |
 |---------|-------|
 | Branch  | `main` |
-| Rev     | [`01a36c15405a`](https://gitlab.freedesktop.org/mesa/mesa/-/commit/01a36c15405ae66e5903cf52f1f42b171d16e022) |
+| Rev     | [`c5e413533f46`](https://gitlab.freedesktop.org/mesa/mesa/-/commit/c5e413533f461cffb98150c9d91908ea1911c589) |
 | Version | `26.2.0-devel` |
 | Date    | 2026-05-18 |
 
