@@ -6,8 +6,9 @@
     "branch": "main"
   },
   "packageFile": "version.json",
+  "versionScheme": "rev-only",
   "hashes": [
-    "hash"
+    { "field": "hash", "file": "version.json" }
   ],
   "verify": {
     "binary": null,
