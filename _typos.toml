@@ -1,0 +1,4 @@
+# typos allowlist. "zink" is the Mesa OpenGL-over-Vulkan gallium driver, not a
+# misspelling of "zinc".
+[default.extend-words]
+zink = "zink"

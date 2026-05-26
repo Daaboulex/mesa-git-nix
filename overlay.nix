@@ -4,19 +4,13 @@ let
   versionInfo = builtins.fromJSON (builtins.readFile ./version.json);
   rustDeps = lib.importJSON ./wraps.json;
 
-  # Bump libdrm when mesa git main requires a newer version than nixpkgs ships.
-  # Applied per-arch so both 64-bit and 32-bit mesa-git get the right libdrm.
-  bumpLibdrm =
-    drm:
-    drm.overrideAttrs (_: rec {
-      version = "2.4.133";
-      src = prev.fetchurl {
-        url = "https://dri.freedesktop.org/libdrm/libdrm-${version}.tar.xz";
-        hash = "sha256-/Gj50LoupjyUMqKZ4U/qCfrXqKZugDn814AspZ93tPU=";
-      };
-    });
-
-  libdrm_bumped = bumpLibdrm prev.libdrm;
+  # mesa main's libdrm floor is the max across enabled drivers (meson
+  # `_drm_amdgpu_ver`); the AMDGPU driver currently sets it highest. We do NOT
+  # fork libdrm — nixpkgs ships mesa's whole coupled dependency set in lockstep,
+  # so mesa inherits it directly. We only assert the floor (inside mesaGitOverride
+  # below) so a consumer pinned to an older nixpkgs gets a clear message instead of a deep
+  # meson configure error. Bump this when mesa raises `_drm_amdgpu_ver`.
+  mesaAmdgpuLibdrmFloor = "2.4.133";
 
   # Build the Rust crate package cache from our wraps.json
   fetchDep =
@@ -106,10 +100,12 @@ let
     {
       galliumDrivers ? null,
       vulkanDrivers ? null,
-      libdrm ? libdrm_bumped,
     }:
     let
-      mesa = baseMesa.override { inherit libdrm; };
+      # libdrm (and the rest of mesa's build closure) is inherited from nixpkgs,
+      # which keeps it in lockstep with mesa. Per-arch is automatic:
+      # pkgsi686Linux.mesa already carries the 32-bit libdrm.
+      mesa = baseMesa;
 
       # Determine the effective gallium driver list for output/postInstall decisions
       effectiveGallium = if galliumDrivers != null then galliumDrivers else mesa.galliumDrivers or [ ];
@@ -158,6 +154,13 @@ let
           ) flags;
 
     in
+    # Floor check is value-level (per package), not set-level: a set-level assert
+    # would force `prev.libdrm` during attribute-name resolution and recurse
+    # infinitely through nixpkgs' by-name overlay. Both arches share this libdrm.
+    assert lib.assertMsg (lib.versionAtLeast prev.libdrm.version mesaAmdgpuLibdrmFloor) ''
+      mesa-git: nixpkgs libdrm ${prev.libdrm.version} is older than ${mesaAmdgpuLibdrmFloor},
+      the floor mesa main's AMDGPU driver requires (meson _drm_amdgpu_ver). nixos-unstable
+      has shipped libdrm >= ${mesaAmdgpuLibdrmFloor} since 2026-04-27 — update your nixpkgs input.'';
     mesa.overrideAttrs (old: {
       version = "${versionInfo.version}-${builtins.substring 0 7 versionInfo.rev}";
 
@@ -241,9 +244,7 @@ in
 {
   # Default: all drivers (same as nixpkgs)
   mesa-git = mesaGitOverride prev.mesa { };
-  mesa-git-32 = mesaGitOverride prev.pkgsi686Linux.mesa {
-    libdrm = bumpLibdrm prev.pkgsi686Linux.libdrm;
-  };
+  mesa-git-32 = mesaGitOverride prev.pkgsi686Linux.mesa { };
 
   # Build mesa-git with only the specified vendor drivers + common essentials.
   #
@@ -306,7 +307,6 @@ in
     mesaGitOverride prev.pkgsi686Linux.mesa {
       galliumDrivers = gd;
       vulkanDrivers = vd;
-      libdrm = bumpLibdrm prev.pkgsi686Linux.libdrm;
     };
 
   # Expose presets and resolver for downstream modules
