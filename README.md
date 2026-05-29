@@ -15,9 +15,10 @@ Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. 
 
 | | |
 |---|---|
-| **Project** | https://gitlab.freedesktop.org/mesa/mesa |
+| **Project** | <https://gitlab.freedesktop.org/mesa/mesa> |
 | **License** | MIT |
 | **Tracked** | Git HEAD (main) |
+
 <!-- END generated:upstream -->
 
 ## Why?
@@ -32,14 +33,10 @@ nixpkgs-unstable tracks Mesa stable releases. Mesa `main` often contains unrelea
 
 ## Pinned Commit
 
-| Field   | Value |
-|---------|-------|
-| Branch  | `main` |
-| Rev     | [`52d57d98a294`](https://gitlab.freedesktop.org/mesa/mesa/-/commit/52d57d98a2948214a2d029f2f4e8b476bf39ada3) |
-| Version | `26.2.0-devel` |
-| Date    | 2026-05-19 |
-
-Updated automatically every 12 hours by CI. See [`version.json`](./version.json) for the full commit SHA.
+The pinned upstream commit, hash, version, and date are the single source of
+truth in [`version.json`](./version.json) (branch `main`). The daily `update.yml`
+workflow runs the custom `scripts/update.sh` — which also regenerates
+`wraps.json` for the Rust crate dependencies — and commits the new pin to `main`.
 
 <!-- BEGIN generated:installation -->
 ## Installation
@@ -66,6 +63,7 @@ Import the NixOS module:
 ```nix
 imports = [ inputs.mesa-git.nixosModules.default ];
 ```
+
 <!-- END generated:installation -->
 
 ## Usage
@@ -139,7 +137,7 @@ By default, mesa-git builds **all** drivers (same as nixpkgs). Set `drivers` to 
 | AMD | `[ "amd" ]` | radeonsi, r600, r300 | RADV |
 | Intel | `[ "intel" ]` | iris, crocus, i915 | ANV, HasVK |
 | NVIDIA | `[ "nvidia" ]` | nouveau, tegra | NVK |
-| All | `[ ]` (default) | all 24 drivers | all 14 drivers |
+| All | `[ ]` (default) | all upstream gallium drivers | all upstream vulkan drivers |
 
 ### Common Essentials (Always Included)
 
@@ -173,7 +171,7 @@ The overlay applies `overrideAttrs` to nixpkgs' `mesa` derivation, changing only
 
 | Attribute | Change |
 |-----------|--------|
-| `version` | `26.1.0-dev-<short-rev>` |
+| `version` | `<mesa-version>-<short-rev>` (mesa-version + commit from `version.json`) |
 | `src` | Pinned git main commit from `version.json` |
 | `patches` | Cleared (nixpkgs patches target release line numbers) |
 | `postPatch` | Replicates `opencl.patch` effects via `substituteInPlace` + `sed`; skips `mesa-gl-headers` validation |
@@ -220,7 +218,7 @@ nix build .#mesa-git
 nix eval .#mesa-git.version
 ```
 
-CI runs the same chain every 12 hours via `.github/workflows/update.yml`, so manual updates are rarely needed.
+CI runs the same chain daily via `.github/workflows/update.yml`, so manual updates are rarely needed.
 
 ## Verification
 
@@ -236,7 +234,7 @@ vulkaninfo | grep driverInfo
 
 ## Repository Structure
 
-```
+```text
 mesa-git-nix/
 ├── flake.nix                   # Flake: overlay + NixOS module + packages
 ├── flake.lock
@@ -245,9 +243,7 @@ mesa-git-nix/
 ├── clang-libdir-option.meson   # Meson option snippet (avoids Nix string escaping)
 ├── version.json                # Pinned commit: rev, hash, version, date
 ├── wraps.json                  # Rust crate deps for MESON_PACKAGE_CACHE_DIR
-├── update.sh                   # Script to pin latest mesa main commit
-├── pkgs/
-│   └── mesa-git.nix            # Package documentation (build via overlay)
+├── scripts/update.sh           # Custom updater: pin latest main + regenerate wraps.json
 ├── LICENSE
 └── README.md
 ```

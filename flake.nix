@@ -3,73 +3,53 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
     git-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    std = {
+      url = "github:Daaboulex/nix-packaging-standard?ref=v2.2.3";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.git-hooks.follows = "git-hooks";
+    };
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      git-hooks,
-    }:
-    let
-      supportedSystems = [
-        "x86_64-linux"
-        "aarch64-linux"
-      ];
-      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-    in
-    {
-      overlays.default = import ./overlay.nix;
-      nixosModules.default = import ./module.nix;
+    inputs@{ flake-parts, self, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      # The 32-bit variant (mesa-git-32 via pkgsi686Linux) and the module's
+      # package32 are x86_64-only; aarch64 has no pkgsi686Linux. declared==built.
+      systems = [ "x86_64-linux" ];
 
-      packages = forAllSystems (
-        system:
+      imports = [ inputs.std.flakeModules.base ];
+
+      flake.overlays.default = import ./overlay.nix;
+      flake.nixosModules.default = import ./module.nix;
+
+      perSystem =
+        { system, ... }:
         let
-          pkgs = import nixpkgs {
-            localSystem.system = system;
+          pkgs = import inputs.nixpkgs {
+            inherit system;
             config.allowUnfree = true;
             overlays = [ self.overlays.default ];
           };
         in
         {
-          mesa-git = pkgs.mesa-git;
-          default = pkgs.mesa-git;
-        }
-      );
+          packages.mesa-git = pkgs.mesa-git;
+          packages.default = pkgs.mesa-git;
 
-      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-rfc-style);
-
-      checks = forAllSystems (system: {
-        pre-commit = git-hooks.lib.${system}.run {
-          src = ./.;
-          hooks.nixfmt-rfc-style.enable = true;
-          hooks.typos.enable = true;
-          hooks.rumdl.enable = true;
-          hooks.check-readme-sections = {
-            enable = true;
-            name = "check-readme-sections";
-            entry = "bash scripts/check-readme-sections.sh";
-            files = "README\.md$";
-            language = "system";
+          checks.module-eval-nixos = inputs.std.lib.nixosModuleCheck {
+            inherit (inputs) nixpkgs;
+            inherit system;
+            overlays = [ self.overlays.default ];
+            module = ./module.nix;
+            config = {
+              nixpkgs.config.allowUnfree = true;
+              mesa-git.enable = true;
+            };
           };
         };
-      });
-
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        {
-          default = pkgs.mkShell {
-            shellHook = self.checks.${system}.pre-commit.shellHook;
-            packages = [ pkgs.nil ];
-          };
-        }
-      );
     };
 }
