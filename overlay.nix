@@ -12,19 +12,30 @@ let
   # meson configure error. Bump this when mesa raises `_drm_amdgpu_ver`.
   mesaAmdgpuLibdrmFloor = "2.4.133";
 
-  # Build the Rust crate package cache from our wraps.json
+  # Build the Rust crate package cache from our wraps.json.
+  #
+  # Fetch each crate from the immutable static.crates.io CDN rather than the
+  # crates.io/api/v1 download endpoint. That API endpoint is rate-limited and
+  # returns 403 to automated CI doing bulk parallel crate downloads (issue #9);
+  # the CDN is the canonical immutable store the endpoint redirects to anyway,
+  # so the bytes — and thus the pinned hash — are identical. The API endpoint
+  # stays on as a fallback mirror; fetchurl tries each url in turn.
   fetchDep =
     dep:
-    prev.fetchCrate {
-      inherit (dep) pname version hash;
-      unpack = false;
+    prev.fetchurl {
+      name = "${dep.pname}-${dep.version}.tar.gz";
+      urls = [
+        "https://static.crates.io/crates/${dep.pname}/${dep.pname}-${dep.version}.crate"
+        "https://crates.io/api/v1/crates/${dep.pname}/${dep.version}/download"
+      ];
+      inherit (dep) hash;
     };
 
-  toCommand = dep: "ln -s ${dep} $out/${dep.pname}-${dep.version}.tar.gz";
-
+  # Symlink each fetched crate into the cache under the meson-expected name.
+  # Keyed off the original dep record (which carries pname/version), not the
+  # fetched derivation — fetchurl, unlike fetchCrate, exposes no such passthru.
   packageCacheCommand = lib.pipe rustDeps [
-    (map fetchDep)
-    (map toCommand)
+    (map (dep: "ln -s ${fetchDep dep} $out/${dep.pname}-${dep.version}.tar.gz"))
     (lib.concatStringsSep "\n")
   ];
 
@@ -107,16 +118,23 @@ let
       # pkgsi686Linux.mesa already carries the 32-bit libdrm.
       mesa = baseMesa;
 
-      # Determine the effective gallium driver list for output/postInstall decisions
+      # Effective gallium driver list for output/postInstall decisions. With no
+      # custom selection this resolves to nixpkgs' own curated list, so the
+      # default build's recipe stays identical to the validated nixpkgs mesa
+      # build — only the git src differs. Custom builds narrow to the selection.
       effectiveGallium = if galliumDrivers != null then galliumDrivers else mesa.galliumDrivers or [ ];
 
-      # d3d12 produces spirv2dxil; asahi/panfrost produce cross_tools binaries
-      # When using default drivers (no custom list), exclude d3d12 — it's unreliable on git main
-      # and produces spirv2dxil output that may not build. Users can opt-in via mkMesaGit.
-      hasD3d12 = galliumDrivers != null && builtins.elem "d3d12" effectiveGallium;
+      # d3d12 produces spirv2dxil; asahi/panfrost produce cross_tools binaries.
+      # Keyed off the effective list (not a "is this a custom build?" guard): the
+      # default build keeps every output nixpkgs produces because it builds the
+      # full driver set, and a custom build keeps only the outputs its selected
+      # drivers actually generate. Decoupling these from the flags is what broke
+      # the default build before — outputs were dropped while the drivers that
+      # populate them were still being built.
+      hasD3d12 = builtins.elem "d3d12" effectiveGallium;
       hasAsahi = builtins.elem "asahi" effectiveGallium;
       hasPanfrost = builtins.elem "panfrost" effectiveGallium;
-      hasCrossToolDrivers = galliumDrivers != null && (hasAsahi || hasPanfrost);
+      hasCrossToolDrivers = hasAsahi || hasPanfrost;
 
       # Replace driver flags in mesonFlags if custom lists are provided
       overrideDriverFlags =
@@ -125,13 +143,19 @@ let
           isDriverFlag = f: lib.hasPrefix "-Dgallium-drivers=" f || lib.hasPrefix "-Dvulkan-drivers=" f;
           filtered = builtins.filter (f: !isDriverFlag f) flags;
         in
-        filtered
-        ++ lib.optional (galliumDrivers != null) (
-          lib.mesonOption "gallium-drivers" (lib.concatStringsSep "," galliumDrivers)
-        )
-        ++ lib.optional (vulkanDrivers != null) (
-          lib.mesonOption "vulkan-drivers" (lib.concatStringsSep "," vulkanDrivers)
-        );
+        # No custom selection -> keep nixpkgs' explicit driver flags verbatim.
+        # Stripping them would drop mesa to meson's `auto` driver set, silently
+        # diverging the default build from the validated nixpkgs recipe.
+        if galliumDrivers == null && vulkanDrivers == null then
+          flags
+        else
+          filtered
+          ++ lib.optional (galliumDrivers != null) (
+            lib.mesonOption "gallium-drivers" (lib.concatStringsSep "," galliumDrivers)
+          )
+          ++ lib.optional (vulkanDrivers != null) (
+            lib.mesonOption "vulkan-drivers" (lib.concatStringsSep "," vulkanDrivers)
+          );
 
       # Filter outputs: remove spirv2dxil/cross_tools when their drivers aren't built
       filterOutputs =
@@ -180,11 +204,17 @@ let
       postPatch = ''
         patchShebangs .
 
-        # Replicate opencl.patch effect: use clang-libdir meson option instead of llvm query
-        if grep -q "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR'" meson.build 2>/dev/null; then
+        # Replicate opencl.patch effect: use clang-libdir meson option instead of
+        # the LLVM cmake query. Fail loud if the upstream pattern is gone so an
+        # auto-update bump surfaces the drift instead of silently shipping a
+        # broken OpenCL build.
+        if grep -qF "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR'" meson.build; then
           substituteInPlace meson.build \
             --replace-fail "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')" \
                            "get_option('clang-libdir')"
+        else
+          echo "ERROR: clang-libdir pattern not found in meson.build — Mesa changed its LLVM libdir logic; update overlay.nix postPatch." >&2
+          exit 1
         fi
 
         # Add clang-libdir meson option if not already present
