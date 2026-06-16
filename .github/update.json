@@ -8,10 +8,26 @@
   "packageFile": "version.json",
   "versionScheme": "rev-only",
   "hashes": [
-    { "field": "hash", "file": "version.json" }
+    {
+      "field": "hash",
+      "file": "version.json"
+    }
   ],
   "verify": {
     "binary": null,
     "args": null
-  }
+  },
+  "description": "Mesa (git main) packaged for NixOS - bleeding-edge overlay, vendor-aware driver presets, and a NixOS module",
+  "topics": [
+    "nix",
+    "nixos",
+    "flake",
+    "nixos-module",
+    "mesa",
+    "mesa-git",
+    "graphics-driver",
+    "vulkan",
+    "opengl",
+    "gpu"
+  ]
 }
