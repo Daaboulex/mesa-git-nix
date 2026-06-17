@@ -18,9 +18,13 @@
   outputs =
     inputs@{ flake-parts, self, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      # The 32-bit variant (mesa-git-32 via pkgsi686Linux) and the module's
-      # package32 are x86_64-only; aarch64 has no pkgsi686Linux. declared==built.
-      systems = [ "x86_64-linux" ];
+      # mesa-git builds on both arches; the 32-bit variant (mesa-git-32 via
+      # pkgsi686Linux) and the module's package32 stay x86_64-only -- aarch64 has
+      # no pkgsi686Linux, so they are simply absent there (declared == built).
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
 
       imports = [ inputs.std.flakeModules.base ];
 
