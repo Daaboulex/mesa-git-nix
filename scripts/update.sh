@@ -13,6 +13,7 @@ set -euo pipefail
 
 REPO_URL="https://gitlab.freedesktop.org/mesa/mesa.git"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 OUTPUT_FILE="${GITHUB_OUTPUT:-/tmp/update-outputs.env}"
 : > "$OUTPUT_FILE"
@@ -24,9 +25,16 @@ err() { echo "::error::$*"; }
 output "package_name" "mesa-git"
 output "upstream_url" "$REPO_URL"
 
+[ -r "$REPO_ROOT/version.json" ] || {
+  err "version.json not readable at $REPO_ROOT -- repo layout drifted from this script"
+  output "error_type" "layout"
+  output "updated" "false"
+  exit 1
+}
+
 # --- Read current state ---
-CURRENT_REV=$(jq -r '.rev' "$SCRIPT_DIR/version.json")
-CURRENT_VERSION=$(jq -r '.version' "$SCRIPT_DIR/version.json")
+CURRENT_REV=$(jq -r '.rev' "$REPO_ROOT/version.json")
+CURRENT_VERSION=$(jq -r '.version' "$REPO_ROOT/version.json")
 output "old_version" "$CURRENT_REV"
 log "Current rev: ${CURRENT_REV:0:12}"
 
@@ -84,7 +92,7 @@ fi
 
 # --- Update version.json ---
 log "Updating version.json..."
-cat > "$SCRIPT_DIR/version.json" << EOF
+cat > "$REPO_ROOT/version.json" << EOF
 {
     "rev": "$REV",
     "hash": "$HASH",
@@ -134,18 +142,40 @@ with open("wraps_out.json", "w") as fd:
     fd.write("\n")
 PYEOF
 
-cp wraps_out.json "$SCRIPT_DIR/wraps.json"
-cd "$SCRIPT_DIR"
+cp wraps_out.json "$REPO_ROOT/wraps.json"
 
-# --- Update README version table ---
-log "Updating README.md..."
+# --- Pin for overlays/venus-protocol.nix (lifecycle tied to that fix file) ---
+if [ ! -f "$REPO_ROOT/overlays/venus-protocol.nix" ]; then
+  rm -f "$REPO_ROOT/venus-protocol.json"
+elif [ -f subprojects/venus-protocol.wrap ]; then
+  VP_REV=$(grep -E '^revision' subprojects/venus-protocol.wrap | sed 's/.*= *//' | tr -d '[:space:]')
+  VP_DIR=$(grep -E '^directory' subprojects/venus-protocol.wrap | sed 's/.*= *//' | tr -d '[:space:]')
+  if [ -z "$VP_REV" ] || [ -z "$VP_DIR" ]; then
+    err "venus-protocol.wrap present but revision/directory unparsable"
+    output "error_type" "wrap-parse"
+    exit 1
+  fi
+  VP_URL="https://gitlab.freedesktop.org/virgl/venus-protocol/-/archive/${VP_REV}/venus-protocol-${VP_REV}.tar.gz"
+  VP_HASH=$(nix store prefetch-file --unpack --json "$VP_URL" | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])") || {
+    err "Failed to prefetch venus-protocol ${VP_REV}"
+    output "error_type" "hash-extraction"
+    exit 1
+  }
+  log "venus-protocol: ${VP_REV:0:12} (${VP_DIR})"
+  cat > "$REPO_ROOT/venus-protocol.json" << EOF
+{
+    "rev": "$VP_REV",
+    "hash": "$VP_HASH",
+    "directory": "$VP_DIR"
+}
+EOF
+else
+  log "mesa no longer carries venus-protocol.wrap; keeping the last pin until heal-overlays retires the fix"
+fi
+
+cd "$REPO_ROOT"
+
 SHORT_REV="${REV:0:12}"
-COMMIT_URL="https://gitlab.freedesktop.org/mesa/mesa/-/commit/${REV}"
-sed -i \
-  -e "s@^| Rev     |.*@| Rev     | [\`${SHORT_REV}\`](${COMMIT_URL}) |@" \
-  -e "s@^| Version |.*@| Version | \`${VERSION_STRING}\` |@" \
-  -e "s@^| Date    |.*@| Date    | ${DATE} |@" \
-  "$SCRIPT_DIR/README.md"
 
 # --- Verification ---
 log "Running verification chain..."

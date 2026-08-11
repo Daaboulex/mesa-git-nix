@@ -28,7 +28,21 @@
 
       imports = [ inputs.std.flakeModules.base ];
 
-      flake.overlays.default = import ./overlay.nix;
+      flake.overlays =
+        let
+          glueOverlay = import ./overlay.nix;
+          dir = ./overlays;
+          names = if builtins.pathExists dir then builtins.attrNames (builtins.readDir dir) else [ ];
+          fixOverlays = map (n: (import (dir + "/${n}")).overlay) (
+            builtins.filter (n: inputs.nixpkgs.lib.hasSuffix ".nix" n) names
+          );
+        in
+        {
+          # Glue + temporary fixes -- what consumers and this flake apply.
+          default = inputs.nixpkgs.lib.composeManyExtensions ([ glueOverlay ] ++ fixOverlays);
+          # Glue WITHOUT fixes -- heal-overlays.sh probes dropWhen against this.
+          probe = glueOverlay;
+        };
       flake.nixosModules.default = import ./module.nix;
 
       perSystem =
@@ -41,8 +55,13 @@
           };
         in
         {
-          packages.mesa-git = pkgs.mesa-git;
-          packages.default = pkgs.mesa-git;
+          packages = {
+            mesa-git = pkgs.mesa-git;
+            default = pkgs.mesa-git;
+          }
+          // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+            mesa-git-32 = pkgs.mesa-git-32;
+          };
 
           checks.module-eval-nixos = inputs.std.lib.nixosModuleCheck {
             inherit (inputs) nixpkgs;

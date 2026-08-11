@@ -135,6 +135,11 @@
         "hash": "sha256-bxCeQd1KPISJB+uD1aQuqYs3aUlVl0UM9tFTUHsWbw8="
     },
     {
+        "pname": "xml",
+        "version": "1.2.1",
+        "hash": "sha256-uKpJjSLJu69IIymDm8ViDEa+J1oZqBLpoiorB1KaZCo="
+    },
+    {
         "pname": "zerocopy",
         "version": "0.8.13",
         "hash": "sha256-Z5FKtFHzv9Lmnl6dLvOFhITnB01j8gT9Fm7DkbVN4h0="
