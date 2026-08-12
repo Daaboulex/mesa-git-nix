@@ -259,7 +259,4 @@ This module declares options under `mesa-git`. See [`module.nix`](module.nix) fo
 This packaging flake is [MIT](./LICENSE) licensed. Mesa itself is distributed under the [MIT license](https://docs.mesa3d.org/license.html).
 
 <!-- BEGIN generated:footer -->
----
-
-*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
 <!-- END generated:footer -->
