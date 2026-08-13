@@ -16,9 +16,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 OUTPUT_FILE="${GITHUB_OUTPUT:-/tmp/update-outputs.env}"
-: > "$OUTPUT_FILE"
+: >"$OUTPUT_FILE"
 
-output() { echo "$1=$2" >> "$OUTPUT_FILE"; }
+output() { echo "$1=$2" >>"$OUTPUT_FILE"; }
 log() { echo "==> $*"; }
 err() { echo "::error::$*"; }
 
@@ -92,7 +92,7 @@ fi
 
 # --- Update version.json ---
 log "Updating version.json..."
-cat > "$REPO_ROOT/version.json" << EOF
+cat >"$REPO_ROOT/version.json" <<EOF
 {
     "rev": "$REV",
     "hash": "$HASH",
@@ -113,7 +113,7 @@ git fetch --depth 1 origin "$REV" 2>&1 | tail -1
 git checkout FETCH_HEAD -- subprojects/ 2>/dev/null
 
 log "Generating wraps.json..."
-python3 << 'PYEOF'
+python3 <<'PYEOF'
 import configparser, pathlib, json, base64, binascii, urllib.parse
 
 def to_sri(h):
@@ -163,7 +163,7 @@ elif [ -f subprojects/venus-protocol.wrap ]; then
     exit 1
   }
   log "venus-protocol: ${VP_REV:0:12} (${VP_DIR})"
-  cat > "$REPO_ROOT/venus-protocol.json" << EOF
+  cat >"$REPO_ROOT/venus-protocol.json" <<EOF
 {
     "rev": "$VP_REV",
     "hash": "$VP_HASH",
