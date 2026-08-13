@@ -9,7 +9,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     std = {
-      url = "github:Daaboulex/nix-packaging-standard?ref=v2.21.0";
+      url = "github:Daaboulex/nix-packaging-standard?ref=v2.22.1";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.git-hooks.follows = "git-hooks";
     };
@@ -56,11 +56,11 @@
         in
         {
           packages = {
-            mesa-git = pkgs.mesa-git;
+            inherit (pkgs) mesa-git;
             default = pkgs.mesa-git;
           }
           // pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-            mesa-git-32 = pkgs.mesa-git-32;
+            inherit (pkgs) mesa-git-32;
           };
 
           checks.module-eval-nixos = inputs.std.lib.nixosModuleCheck {

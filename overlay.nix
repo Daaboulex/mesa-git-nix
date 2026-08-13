@@ -1,6 +1,6 @@
-final: prev:
+_final: prev:
 let
-  lib = prev.lib;
+  inherit (prev) lib;
   versionInfo = builtins.fromJSON (builtins.readFile ./version.json);
   rustDeps = lib.importJSON ./wraps.json;
 

@@ -14,7 +14,7 @@
   # recipe provides venus-protocol or mesa stopped requiring it.
   dropWhenBuilds = pkgs: pkgs.mesa-git;
   overlay =
-    final: prev:
+    _final: prev:
     let
       pin = prev.lib.importJSON ../venus-protocol.json;
       src = prev.fetchFromGitLab {
