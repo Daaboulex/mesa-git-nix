@@ -132,8 +132,9 @@ for f in sorted(pathlib.Path("subprojects").glob("*.wrap")):
         continue
     parsed = urllib.parse.urlparse(url)
     parts = parsed.path.strip("/").split("/")
-    name = parts[3]
-    version = parts[4]
+    ci = parts.index("crates")
+    name = parts[ci + 1]
+    version = parts[ci + 2]
     h = p.get("wrap-file", "source_hash")
     result.append({"pname": name, "version": version, "hash": to_sri(h)})
 
