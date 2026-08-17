@@ -22,6 +22,25 @@ output() { echo "$1=$2" >>"$OUTPUT_FILE"; }
 log() { echo "==> $*"; }
 err() { echo "::error::$*"; }
 
+# Diagnostics go to stderr: stdout carries the hash to the caller's $(...).
+prefetch_hash() {
+  local url=$1 errfile out hash
+  errfile=$(mktemp)
+  out=$(nix store prefetch-file --unpack --json "$url" 2>"$errfile")
+  hash=$(jq -r '.hash // empty' <<<"$out" 2>/dev/null)
+  if [ -z "$hash" ]; then
+    {
+      echo "::error::prefetch failed for $url"
+      grep -oiE 'HTTP error [0-9]{3}|Too Many Requests|error: .*' "$errfile" |
+        sort -u | head -3 | sed 's/^/::error::  /'
+    } >&2
+    rm -f "$errfile"
+    return 1
+  fi
+  rm -f "$errfile"
+  printf '%s' "$hash"
+}
+
 output "package_name" "mesa-git"
 output "upstream_url" "$REPO_URL"
 
@@ -65,8 +84,7 @@ output "updated" "true"
 # --- Compute source hash ---
 log "Computing source hash..."
 ARCHIVE_URL="https://gitlab.freedesktop.org/mesa/mesa/-/archive/${REV}/mesa-${REV}.tar.gz"
-HASH=$(nix store prefetch-file --unpack --json "$ARCHIVE_URL" | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])") || {
-  err "Failed to compute source hash"
+HASH=$(prefetch_hash "$ARCHIVE_URL") || {
   output "error_type" "hash-extraction"
   exit 1
 }
@@ -157,8 +175,7 @@ elif [ -f subprojects/venus-protocol.wrap ]; then
     exit 1
   fi
   VP_URL="https://gitlab.freedesktop.org/virgl/venus-protocol/-/archive/${VP_REV}/venus-protocol-${VP_REV}.tar.gz"
-  VP_HASH=$(nix store prefetch-file --unpack --json "$VP_URL" | python3 -c "import sys,json; print(json.load(sys.stdin)['hash'])") || {
-    err "Failed to prefetch venus-protocol ${VP_REV}"
+  VP_HASH=$(prefetch_hash "$VP_URL") || {
     output "error_type" "hash-extraction"
     exit 1
   }
