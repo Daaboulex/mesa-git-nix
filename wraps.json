@@ -40,6 +40,11 @@
         "hash": "sha256-E9wt81HjICeDof4NRDdfcpX/tASSZ7DzAYNG3BIqHZQ="
     },
     {
+        "pname": "mach2",
+        "version": "0.7.0",
+        "hash": "sha256-sNKOKT8rjJ0rLRwBk708HL3A0s85aIjcARYvfPnWw/M="
+    },
+    {
         "pname": "once_cell",
         "version": "1.8.0",
         "hash": "sha256-aS/LY7ZLF1gCngqW7mPgSc6MWUhYfy9yCN8EYl5fa1Y="
