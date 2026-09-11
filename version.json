@@ -1,6 +1,6 @@
 {
-    "rev": "50203065421d65524b60911e677d1f3f2405d0a5",
-    "hash": "sha256-2ybriFaBZwuxhkjU7Sze3wGbXcSDVrbsfSWGW34eyvY=",
-    "version": ">= 1.4.0",
-    "date": "2026-09-10"
+    "rev": "aed26d2b59e730e1d2e00829f07160b7d06762c3",
+    "hash": "sha256-pZIJRAj4APP7Y+w8dZQkOjShDyjaxNue2p4j0hDrwYI=",
+    "version": "26.3.0-devel",
+    "date": "2026-09-11"
 }
