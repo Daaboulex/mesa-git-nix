@@ -198,12 +198,24 @@ SHORT_REV="${REV:0:12}"
 # --- Verification ---
 log "Running verification chain..."
 
-log "Step 1/2: nix flake check --no-build"
-if ! nix flake check --no-build 2>&1; then
-  err "Eval check failed"
-  output "error_type" "eval-error"
+log "Step 1/2: nix flake check"
+CHECK_LOG=$(mktemp)
+if nix flake check --no-eval-cache --print-build-logs 2>&1 | tee "$CHECK_LOG"; then
+  CHECK_RC=${PIPESTATUS[0]}
+else
+  CHECK_RC=${PIPESTATUS[0]}
+fi
+if [ "$CHECK_RC" -ne 0 ]; then
+  err "Check suite failed"
+  if grep -qE "Cannot build '/nix/store/[^']+\.drv'" "$CHECK_LOG"; then
+    output "error_type" "build-error"
+  else
+    output "error_type" "eval-error"
+  fi
+  rm -f "$CHECK_LOG"
   exit 1
 fi
+rm -f "$CHECK_LOG"
 
 log "Step 2/2: nix eval version"
 BUILT_VERSION=$(nix eval --raw .#mesa-git.version 2>&1) || {
