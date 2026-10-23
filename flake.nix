@@ -30,7 +30,7 @@
 
       flake.overlays =
         let
-          glueOverlay = import ./overlay.nix;
+          glueOverlay = import ./overlay.nix { inherit (inputs.std.lib) patchAssertions; };
           dir = ./overlays;
           names = if builtins.pathExists dir then builtins.attrNames (builtins.readDir dir) else [ ];
           fixOverlays = map (n: (import (dir + "/${n}")).overlay) (

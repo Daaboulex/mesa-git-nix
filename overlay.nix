@@ -1,3 +1,4 @@
+{ patchAssertions }:
 _final: prev:
 let
   inherit (prev) lib;
@@ -201,33 +202,27 @@ let
       # in postInstall. We reapply just the functional parts via postPatch.
       patches = [ ];
 
-      postPatch = ''
+      postPatch = patchAssertions + ''
         patchShebangs .
 
         # Replicate opencl.patch effect: use clang-libdir meson option instead of
         # the LLVM cmake query. Fail loud if the upstream pattern is gone so an
         # auto-update bump surfaces the drift instead of silently shipping a
         # broken OpenCL build.
-        if grep -qF "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR'" meson.build; then
-          substituteInPlace meson.build \
-            --replace-fail "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')" \
-                           "get_option('clang-libdir')"
-        else
-          echo "ERROR: clang-libdir pattern not found in meson.build — Mesa changed its LLVM libdir logic; update overlay.nix postPatch." >&2
-          exit 1
-        fi
+        substituteInPlace meson.build \
+          --replace-fail "dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir')" \
+                         "get_option('clang-libdir')"
 
-        # Add clang-libdir meson option if not already present
-        if ! grep -q "clang-libdir" meson.options 2>/dev/null; then
+        present meson.options "option(" "meson.options holds Mesa's build options"
+        if ! grep -qF "clang-libdir" meson.options; then
           cat ${./clang-libdir-option.meson} >> meson.options
         fi
+        landed meson.options "clang-libdir" "meson.options declares clang-libdir"
 
-        # Disable rusticl ICD file auto-install (nixpkgs constructs its own with absolute path)
-        # Only target the configure_file block, not the shared_library install
-        if [ -f src/gallium/targets/rusticl/meson.build ]; then
-          sed -i '/configure_file/,/^)/{s/install : true/install : false/}' \
-            src/gallium/targets/rusticl/meson.build || true
-        fi
+        sed -i '/configure_file/,/^)/{s/install : true/install : false/}' \
+          src/gallium/targets/rusticl/meson.build
+        landed src/gallium/targets/rusticl/meson.build "install : false" \
+          "rusticl: ICD install disabled, postInstall writes the opencl output's own with an absolute path"
       '';
 
       # Remove outputs that won't be populated with the selected drivers
