@@ -22,3 +22,26 @@ jobs:
     uses: Daaboulex/nix-packaging-standard/.github/workflows/package-update.yml@release
     with:
       cadence: ${{ vars.UPDATE_CADENCE || 'daily' }}
+
+  verify:
+    needs: update
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if the update job did not succeed
+        if: needs.update.result == 'failure' || needs.update.result == 'cancelled'
+        run: |
+          echo "::error::update job ${{ needs.update.result }}"
+          exit 1
+
+      - name: Fail if the pin is stale
+        run: |
+          date=$(jq -r .date version.json)
+          age=$(( ( $(date +%s) - $(date -d "$date" +%s) ) / 86400 ))
+          echo "Pinned mesa commit is ${age} days old!"
+          if [ "$age" -gt 7 ]; then
+            echo "::error::version.json is ${age} days stale; the update is failing or being swallowed. Must investigate!"
+            exit 1
+          fi
