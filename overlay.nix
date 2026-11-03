@@ -178,6 +178,42 @@ let
             && !(lib.hasPrefix "-Dinstall-precomp-compiler=" f)
           ) flags;
 
+      # Vulkan layers nixpkgs enables that this mesa main no longer offers.
+      # Meson hard-errors on unknown choices, so drop them from the list.
+      # NOTE: Currently: anti-lag (absent from mesa main's vulkan-layers choices).
+      unsupportedVulkanLayers = [ "anti-lag" ];
+
+      dropUnsupportedLayers =
+        flags:
+        let
+          prefix = "-Dvulkan-layers=";
+        in
+        map (
+          f:
+          if lib.hasPrefix prefix f then
+            prefix
+            + lib.concatStringsSep "," (
+              builtins.filter (l: !(builtins.elem l unsupportedVulkanLayers)) (
+                lib.splitString "," (lib.removePrefix prefix f)
+              )
+            )
+          else
+            f
+        ) flags;
+
+      # mesa main replaced the boolean `amdgpu-virtio` with the array option
+      # `amd-options` (choices: use-llvm, virtio). Meson's deprecation shim cannot
+      # map `true` onto an array, so nixpkgs' `-Damdgpu-virtio=true` hard-errors.
+      migrateAmdOptions =
+        flags:
+        let
+          legacy = "-Damdgpu-virtio=";
+          isLegacy = f: lib.hasPrefix legacy f;
+          legacyTrue = builtins.any (f: f == "${legacy}true") flags;
+        in
+        builtins.filter (f: !isLegacy f) flags
+        ++ lib.optional legacyTrue (lib.mesonOption "amd-options" "use-llvm,virtio");
+
     in
     # Floor check is value-level (per package), not set-level: a set-level assert
     # would force `prev.libdrm` during attribute-name resolution and recurse
@@ -228,7 +264,9 @@ let
       # Remove outputs that won't be populated with the selected drivers
       outputs = filterOutputs (old.outputs or [ "out" ]);
 
-      mesonFlags = filterMesonFlags (overrideDriverFlags (old.mesonFlags or [ ]));
+      mesonFlags = migrateAmdOptions (
+        dropUnsupportedLayers (filterMesonFlags (overrideDriverFlags (old.mesonFlags or [ ])))
+      );
 
       # Rewrite postInstall to only move outputs that actually exist
       postInstall = ''
