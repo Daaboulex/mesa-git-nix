@@ -19,8 +19,8 @@ OUTPUT_FILE="${GITHUB_OUTPUT:-/tmp/update-outputs.env}"
 : >"$OUTPUT_FILE"
 
 output() { echo "$1=$2" >>"$OUTPUT_FILE"; }
-log() { echo "==> $*"; }
-err() { echo "::error::$*"; }
+log() { echo "==> $*" >&2; }
+err() { echo "::error::$*" >&2; }
 
 # Diagnostics go to stderr: stdout carries the hash to the caller's $(...).
 prefetch_hash() {
