@@ -121,10 +121,10 @@ EOF
 
 # --- Regenerate wraps.json (Rust crate dependencies) ---
 log "Fetching subprojects/*.wrap for Rust crate deps..."
-TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+wraps_dir=$(mktemp -d)
+trap 'rm -rf "$wraps_dir"' EXIT
 
-cd "$TMPDIR"
+cd "$wraps_dir"
 git init -q
 git remote add origin "$REPO_URL"
 git fetch --depth 1 origin "$REV" 2>&1 | tail -1
