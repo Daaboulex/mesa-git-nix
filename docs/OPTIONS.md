@@ -10,8 +10,7 @@ Declared in [module.nix](../module.nix).
 
 Whether to enable Use mesa-git (bleeding-edge) instead of nixpkgs mesa.
 
-- Type: boolean
-- Default: `false`
+Type: `boolean`. Default: `false`.
 
 ### `mesa-git.drivers`
 
@@ -21,12 +20,12 @@ plus common essentials (llvmpipe, zink, virgl, swrast) are built.
 Use multiple entries for multi-GPU setups (e.g. Intel iGPU + NVIDIA dGPU).
 An empty list (default) builds all drivers.
 
-- Type: list of (one of "amd", "intel", "nvidia")
-- Default: `[ ]`
-- Example:
+Type: `list of (one of "amd", "intel", "nvidia")`. Default: `[ ]`.
 
-  ```nix
-  [
-    "amd"
-  ]
-  ```
+Example:
+
+```nix
+[
+  "amd"
+]
+```
