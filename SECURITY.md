@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-This repository tracks upstream releases. The latest commit on the default branch is the only supported version.
+This repository tracks the upstream `main` branch. The latest commit on the default branch is the only supported version.
 
 ## Reporting a Vulnerability
 

@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 <!-- END generated:badges -->
 
-Bleeding-edge [Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
+[Mesa](https://www.mesa3d.org/) from the `main` branch, packaged as a Nix flake.
 
 Overrides nixpkgs' `mesa` via `overrideAttrs` — no derivation rewrite needed. Provides an overlay (`mesa-git` / `mesa-git-32`), vendor-aware driver presets, and a NixOS module to swap the system graphics driver in one line.
 
@@ -29,14 +29,12 @@ nixpkgs-unstable tracks Mesa stable releases. Mesa `main` often contains unrelea
 - **RADV**: Vulkan driver fixes, new extensions, performance tuning
 - **NVK / ANV / etc.**: Ongoing Vulkan and OpenGL improvements across all drivers
 
-[Chaotic-Nyx](https://github.com/chaotic-cx/nyx) (the previous community mesa-git source) was archived in December 2025 with no maintained replacement.
-
 ## Pinned Commit
 
 The pinned upstream commit, hash, version, and date are the single source of
-truth in [`version.json`](./version.json) (branch `main`). The daily `update.yml`
-workflow runs the custom `scripts/update.sh` — which also regenerates
-`wraps.json` for the Rust crate dependencies — and commits the new pin to `main`.
+truth in [`version.json`](./version.json) (branch `main`). The daily [`update.yml`](./.github/workflows/update.yml)
+workflow runs the custom [`scripts/update.sh`](./scripts/update.sh), which also regenerates
+[`wraps.json`](./wraps.json) for the Rust crate dependencies, and commits the new pin to `main`.
 
 <!-- BEGIN generated:installation -->
 ## Installation
@@ -128,16 +126,16 @@ nix eval github:daaboulex/mesa-git-nix#mesa-git.version
 
 ## Driver Presets
 
-By default, mesa-git builds **all** drivers (same as nixpkgs). Set `drivers` to only compile what your hardware needs — this dramatically reduces build time.
+By default, mesa-git builds the same drivers as nixpkgs. Set `drivers` to compile only the drivers your hardware needs.
 
 ### Vendor Presets
 
 | Vendor | `drivers` | Gallium | Vulkan |
 |--------|-----------|---------|--------|
-| AMD | `[ "amd" ]` | radeonsi, r600, r300 | RADV |
-| Intel | `[ "intel" ]` | iris, crocus, i915 | ANV, HasVK |
-| NVIDIA | `[ "nvidia" ]` | nouveau, tegra | NVK |
-| All | `[ ]` (default) | all upstream gallium drivers | all upstream vulkan drivers |
+| AMD | `[ "amd" ]` | radeonsi, r600, r300 | `amd` (RADV) |
+| Intel | `[ "intel" ]` | iris, crocus, i915 | `intel` (ANV), `intel_hasvk` (HasVK) |
+| NVIDIA | `[ "nvidia" ]` | nouveau, tegra | `nouveau` (NVK) |
+| All | `[ ]` (default) | nixpkgs' gallium driver list | nixpkgs' vulkan driver list |
 
 ### Common Essentials (Always Included)
 
@@ -167,24 +165,15 @@ hardware.graphics.package = lib.mkForce (pkgs.mkMesaGit {
 
 ## How It Works
 
-The overlay applies `overrideAttrs` to nixpkgs' `mesa` derivation, changing only what's necessary:
+The overlay applies `overrideAttrs` to nixpkgs' `mesa` derivation and sets `version`, `src`, `patches`, `postPatch`, `outputs`, `mesonFlags`, `postInstall`, `env.MESON_PACKAGE_CACHE_DIR` and `meta.description`. See [`overlay.nix`](./overlay.nix) for each one.
 
-| Attribute | Change |
-|-----------|--------|
-| `version` | `<mesa-version>-<short-rev>` (mesa-version + commit from `version.json`) |
-| `src` | Pinned git main commit from `version.json` |
-| `patches` | Cleared (nixpkgs patches target release line numbers) |
-| `postPatch` | Replicates `opencl.patch` effects via `substituteInPlace` + `sed`; skips `mesa-gl-headers` validation |
-| `mesonFlags` | Driver lists replaced when vendor presets are used |
-| `env.MESON_PACKAGE_CACHE_DIR` | Rebuilt from `wraps.json` (Rust crate deps matching git main) |
-
-Everything else (build inputs, outputs, `postInstall`, `postFixup`) is inherited from nixpkgs.
+Every other attribute, build inputs and `postFixup` among them, is inherited from nixpkgs. The files under [`overlays/`](./overlays/) are temporary fixes applied on top of that override.
 
 ### What the `postPatch` Does
 
-1. **`clang-libdir` meson option** — nixpkgs' `opencl.patch` adds a custom meson option so Nix can control the clang library search path. We replicate this with `substituteInPlace` on `meson.build` and append the option definition from `clang-libdir-option.meson`.
-2. **Rusticl ICD install** — disables auto-installing the `.icd` file (nixpkgs reconstructs it with an absolute Nix store path in `postInstall`).
-3. **`mesa-gl-headers` check** — skipped entirely, since git main headers diverge from the pinned release headers package.
+1. **`clang-libdir` meson option**: nixpkgs' `opencl.patch` adds a custom meson option so Nix can control the clang library search path. We replicate this with `substituteInPlace` on `meson.build` and append the option definition from [`clang-libdir-option.meson`](./clang-libdir-option.meson).
+2. **Rusticl ICD install**: disables auto-installing the `.icd` file (the overlay's own `postInstall` writes it with an absolute Nix store path).
+3. **`mesa-gl-headers` check**: skipped entirely, since git main headers diverge from the pinned release headers package.
 
 ## Development
 
@@ -206,10 +195,12 @@ nix eval .#mesa-git.version       # confirm pinned commit + version string
 
 This script:
 
-1. Fetches the latest commit SHA from `gitlab.freedesktop.org/mesa/mesa` `main`
-2. Computes the source hash with `nix-prefetch-git`
-3. Sparse-clones `subprojects/*.wrap` to regenerate `wraps.json` (Rust crate dependencies)
-4. Writes `version.json`
+1. Reads the latest commit SHA of `main` from `gitlab.freedesktop.org/mesa/mesa` and stops when it is already pinned
+2. Computes the source hash by prefetching that commit's archive with `nix store prefetch-file --unpack`
+3. Reads Mesa's `VERSION` file at that commit and writes [`version.json`](./version.json)
+4. Fetches the commit at depth 1 and regenerates [`wraps.json`](./wraps.json) (Rust crate dependencies) from `subprojects/*.wrap`
+5. Rewrites [`venus-protocol.json`](./venus-protocol.json) from Mesa's `subprojects/venus-protocol.wrap` while [`overlays/venus-protocol.nix`](./overlays/venus-protocol.nix) exists
+6. Runs `nix flake check` and `nix eval .#mesa-git.version`
 
 After updating, test with:
 
@@ -218,7 +209,7 @@ nix build .#mesa-git
 nix eval .#mesa-git.version
 ```
 
-CI runs the same chain daily via `.github/workflows/update.yml`, so manual updates are rarely needed.
+CI runs the same chain daily via [`.github/workflows/update.yml`](./.github/workflows/update.yml), so manual updates are rarely needed.
 
 ## Verification
 
@@ -230,22 +221,6 @@ glxinfo | grep "OpenGL version"
 
 # Vulkan driver info should show RADV with git version
 vulkaninfo | grep driverInfo
-```
-
-## Repository Structure
-
-```text
-mesa-git-nix/
-├── flake.nix                   # Flake: overlay + NixOS module + packages
-├── flake.lock
-├── overlay.nix                 # Nixpkgs overlay: mesa-git, mkMesaGit, driver presets
-├── module.nix                  # NixOS module: mesa-git.enable + drivers option
-├── clang-libdir-option.meson   # Meson option snippet (avoids Nix string escaping)
-├── version.json                # Pinned commit: rev, hash, version, date
-├── wraps.json                  # Rust crate deps for MESON_PACKAGE_CACHE_DIR
-├── scripts/update.sh           # Custom updater: pin latest main + regenerate wraps.json
-├── LICENSE
-└── README.md
 ```
 
 <!-- BEGIN generated:options -->
