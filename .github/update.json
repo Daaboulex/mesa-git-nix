@@ -13,10 +13,6 @@
       "file": "version.json"
     }
   ],
-  "verify": {
-    "binary": null,
-    "args": null
-  },
   "description": "Mesa (git main) packaged for NixOS - bleeding-edge overlay, vendor-aware driver presets, and a NixOS module",
   "topics": [
     "nix",
