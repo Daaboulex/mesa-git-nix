@@ -51,10 +51,7 @@ This script:
    [`version.json`](../version.json)
 4. Fetches the commit at depth 1 and regenerates [`wraps.json`](../wraps.json)
    (Rust crate dependencies) from `subprojects/*.wrap`
-5. Rewrites [`venus-protocol.json`](../venus-protocol.json) from Mesa's
-   `subprojects/venus-protocol.wrap` while the temporary overlay
-   `overlays/venus-protocol.nix` exists
-6. Runs `nix flake check` and `nix eval .#mesa-git.version`
+5. Runs `nix flake check` and `nix eval .#mesa-git.version`
 
 After updating, test with:
 

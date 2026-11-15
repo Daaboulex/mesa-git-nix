@@ -163,34 +163,6 @@ PYEOF
 
 cp wraps_out.json "$REPO_ROOT/wraps.json"
 
-# --- Pin for overlays/venus-protocol.nix (lifecycle tied to that fix file) ---
-if [ ! -f "$REPO_ROOT/overlays/venus-protocol.nix" ]; then
-  rm -f "$REPO_ROOT/venus-protocol.json"
-elif [ -f subprojects/venus-protocol.wrap ]; then
-  VP_REV=$(grep -E '^revision' subprojects/venus-protocol.wrap | sed 's/.*= *//' | tr -d '[:space:]')
-  VP_DIR=$(grep -E '^directory' subprojects/venus-protocol.wrap | sed 's/.*= *//' | tr -d '[:space:]')
-  if [ -z "$VP_REV" ] || [ -z "$VP_DIR" ]; then
-    err "venus-protocol.wrap present but revision/directory unparsable"
-    output "error_type" "wrap-parse"
-    exit 1
-  fi
-  VP_URL="https://gitlab.freedesktop.org/virgl/venus-protocol/-/archive/${VP_REV}/venus-protocol-${VP_REV}.tar.gz"
-  VP_HASH=$(prefetch_hash "$VP_URL") || {
-    output "error_type" "hash-extraction"
-    exit 1
-  }
-  log "venus-protocol: ${VP_REV:0:12} (${VP_DIR})"
-  cat >"$REPO_ROOT/venus-protocol.json" <<EOF
-{
-    "rev": "$VP_REV",
-    "hash": "$VP_HASH",
-    "directory": "$VP_DIR"
-}
-EOF
-else
-  log "mesa no longer carries venus-protocol.wrap; keeping the last pin until heal-overlays retires the fix"
-fi
-
 cd "$REPO_ROOT"
 
 SHORT_REV="${REV:0:12}"
